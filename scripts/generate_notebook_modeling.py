@@ -1,0 +1,653 @@
+"""
+Generator untuk Jupyter Notebook Interaktif Fase 3 & 4 CRISP-DM:
+'notebooks/02_crisp_dm_modeling_evaluation.ipynb'
+Membangun notebook terstruktur lengkap dengan visualisasi, penjelasan teori, dan kode eksekusi siap Google Colab.
+"""
+
+import os
+import json
+
+
+def create_modeling_notebook():
+    notebook = {
+        "cells": [
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [
+                    "# 🎓 SISTEM NLP TRACER STUDY INDOBERT: FASE 3 & FASE 4 CRISP-DM\n",
+                    "## 🤖 CRISP-DM 4: Modeling (Fine-Tuning Dual-Model IndoBERT)\n",
+                    "## 📊 CRISP-DM 5: Evaluation & Analytics (Metrik NLP, Confusion Matrix, WordCloud)\n",
+                    "\n",
+                    "**Institusi:** Universitas Dinamika  \n",
+                    "**Model Backbone:** IndoBERT Base (`indobenchmark/indobert-base-p1` - 110M Parameter)  \n",
+                    "**Target Output:**  \n",
+                    "1. **Model 1 (Topik Kritik/Saran):** 5 Kelas (*Kurikulum, Fasilitas, Dosen, Karier/Magang, Layanan Mahasiswa*)\n",
+                    "2. **Model 2 (Sentimen Testimoni):** 2 Kelas (*Negatif, Positif*)\n",
+                    "\n",
+                    "---\n",
+                    "\n",
+                    "### 📌 Arsitektur & Alur Kerja CRISP-DM 4 & 5\n",
+                    "```\n",
+                    "Dataset Latih Seimbang (350 Sampel)\n",
+                    "       │\n",
+                    "       ▼\n",
+                    "IndoBERT Tokenizer (Max Length 128) ──> PyTorch DataLoader\n",
+                    "       │\n",
+                    "       ▼\n",
+                    "Fine-Tuning IndoBERT (AdamW, lr=2e-5, Linear Warmup, EarlyStopping by Val F1)\n",
+                    "       │\n",
+                    "       ├──> Model Checkpoint 1: models/topic_model/ (5 Kelas Topik)\n",
+                    "       └──> Model Checkpoint 2: models/sentiment_model/ (2 Kelas Sentimen)\n",
+                    "       │\n",
+                    "       ▼\n",
+                    "Evaluasi pada Test Set Murni (Anti-Data Leakage)\n",
+                    "       ├── Accuracy, Macro Precision, Macro Recall, Macro F1-Score\n",
+                    "       ├── Confusion Matrix Heatmap\n",
+                    "       ├── WordCloud Analisis Kata Kunci per Kategori\n",
+                    "       └── Dual-Model Live Inference Pipeline & Active Learning (Confidence < 0.70)\n",
+                    "```"
+                ]
+            },
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [
+                    "## 1. Setup Environment & Verifikasi Hardware Akselerasi\n",
+                    "Memeriksa ketersediaan akselerasi GPU (CUDA di Google Colab / GPU lokal) dan mengimpor pustaka inti Deep Learning."
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "# Install dependensi jika dijalankan di Google Colab\n",
+                    "# !pip install -q transformers accelerate datasets evaluate deep-translator wordcloud\n",
+                    "\n",
+                    "import os\n",
+                    "import sys\n",
+                    "import random\n",
+                    "import time\n",
+                    "import json\n",
+                    "import numpy as np\n",
+                    "import pandas as pd\n",
+                    "import matplotlib.pyplot as plt\n",
+                    "import seaborn as sns\n",
+                    "import torch\n",
+                    "import torch.nn as nn\n",
+                    "import torch.nn.functional as F\n",
+                    "from torch.utils.data import Dataset, DataLoader\n",
+                    "from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig, get_linear_schedule_with_warmup\n",
+                    "from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix, classification_report\n",
+                    "from wordcloud import WordCloud\n",
+                    "\n",
+                    "# Pastikan seed konsisten untuk reproduktifitas eksperimen\n",
+                    "def set_seed(seed=42):\n",
+                    "    random.seed(seed)\n",
+                    "    np.random.seed(seed)\n",
+                    "    torch.manual_seed(seed)\n",
+                    "    if torch.cuda.is_available():\n",
+                    "        torch.cuda.manual_seed(seed)\n",
+                    "        torch.cuda.manual_seed_all(seed)\n",
+                    "        torch.backends.cudnn.deterministic = True\n",
+                    "\n",
+                    "set_seed(42)\n",
+                    "device = torch.device(\"cuda\" if torch.cuda.is_available() else \"cpu\")\n",
+                    "print(f\"✅ PyTorch Version : {torch.__version__}\")\n",
+                    "print(f\"🚀 Hardware Device : {device} ({torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'})\")"
+                ]
+            },
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [
+                    "## 2. Memuat Dataset Hasil Fase 2 (Stratified Split & Augmented)\n",
+                    "Memuat dataset latih yang telah diseimbangkan melalui *Back-Translation* (350 sampel), serta dataset validasi dan uji murni asli."
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "# Konfigurasi Label Topik & Sentimen\n",
+                    "TOPIC_ID2LABEL = {\n",
+                    "    0: \"Kurikulum & Pembelajaran\",\n",
+                    "    1: \"Fasilitas & Sarana Prasarana\",\n",
+                    "    2: \"Dosen & Tenaga Pengajar\",\n",
+                    "    3: \"Karier, Magang & Kesiapan Kerja\",\n",
+                    "    4: \"Layanan Kemahasiswaan & Administrasi Kampus\",\n",
+                    "}\n",
+                    "TOPIC_LABEL2ID = {v: k for k, v in TOPIC_ID2LABEL.items()}\n",
+                    "\n",
+                    "SENTIMENT_ID2LABEL = {0: \"Negatif\", 1: \"Positif\"}\n",
+                    "SENTIMENT_LABEL2ID = {v: k for k, v in SENTIMENT_ID2LABEL.items()}\n",
+                    "\n",
+                    "# Muat Dataset Topik\n",
+                    "df_train_topic = pd.read_csv(\"../data/augmented/train_topic_augmented.csv\")\n",
+                    "df_val_topic = pd.read_csv(\"../data/processed/val_topic.csv\")\n",
+                    "df_test_topic = pd.read_csv(\"../data/processed/test_topic.csv\")\n",
+                    "\n",
+                    "# Muat Dataset Sentimen\n",
+                    "df_train_sentiment = pd.read_csv(\"../data/augmented/train_sentiment_augmented.csv\")\n",
+                    "df_val_sentiment = pd.read_csv(\"../data/processed/val_sentiment.csv\")\n",
+                    "df_test_sentiment = pd.read_csv(\"../data/processed/test_sentiment.csv\")\n",
+                    "\n",
+                    "print(\"=== REKAPITULASI DATASET TOPIK ===\")\n",
+                    "print(f\"• Data Latih (Augmented) : {len(df_train_topic)} baris (70 per kelas)\")\n",
+                    "print(f\"• Data Validasi (Murni) : {len(df_val_topic)} baris\")\n",
+                    "print(f\"• Data Uji (Murni)      : {len(df_test_topic)} baris\\n\")\n",
+                    "\n",
+                    "print(\"=== REKAPITULASI DATASET SENTIMEN ===\")\n",
+                    "print(f\"• Data Latih (Augmented) : {len(df_train_sentiment)} baris (175 per kelas)\")\n",
+                    "print(f\"• Data Validasi (Murni) : {len(df_val_sentiment)} baris\")\n",
+                    "print(f\"• Data Uji (Murni)      : {len(df_test_sentiment)} baris\")"
+                ]
+            },
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [
+                    "## 3. Tokenisasi IndoBERT & Eksplorasi Subword\n",
+                    "IndoBERT menggunakan tokenizer **WordPiece** yang memecah kata majemuk bahasa Indonesia menjadi morfem subword dengan prefiks `##`."
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "PRETRAINED_MODEL_NAME = \"indobenchmark/indobert-base-p1\"\n",
+                    "tokenizer = AutoTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)\n",
+                    "\n",
+                    "# Contoh Demonstrasi Tokenisasi WordPiece\n",
+                    "sample_text = \"Perlu peningkatan fasilitas laboratorium komputer dan magang kerja di industri.\"\n",
+                    "tokens = tokenizer.tokenize(sample_text)\n",
+                    "encoded = tokenizer(sample_text, padding=\"max_length\", max_length=20, truncation=True)\n",
+                    "\n",
+                    "print(\"Kalimat Masukan :\", sample_text)\n",
+                    "print(\"WordPiece Tokens:\", tokens)\n",
+                    "print(\"Input IDs (20)  :\", encoded[\"input_ids\"])\n",
+                    "print(\"Attention Mask  :\", encoded[\"attention_mask\"])"
+                ]
+            },
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [
+                    "### PyTorch Dataset & DataLoader Class"
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "class TracerStudyDataset(Dataset):\n",
+                    "    def __init__(self, texts, labels, tokenizer, max_length=128):\n",
+                    "        self.texts = list(texts)\n",
+                    "        self.labels = list(labels) if labels is not None else None\n",
+                    "        self.tokenizer = tokenizer\n",
+                    "        self.max_length = max_length\n",
+                    "\n",
+                    "    def __len__(self):\n",
+                    "        return len(self.texts)\n",
+                    "\n",
+                    "    def __getitem__(self, idx):\n",
+                    "        text = str(self.texts[idx])\n",
+                    "        encoding = self.tokenizer(\n",
+                    "            text,\n",
+                    "            truncation=True,\n",
+                    "            max_length=self.max_length,\n",
+                    "            padding=\"max_length\",\n",
+                    "            return_token_type_ids=True,\n",
+                    "            return_attention_mask=True,\n",
+                    "            return_tensors=\"pt\",\n",
+                    "        )\n",
+                    "        item = {\n",
+                    "            \"input_ids\": encoding[\"input_ids\"].squeeze(0),\n",
+                    "            \"attention_mask\": encoding[\"attention_mask\"].squeeze(0),\n",
+                    "            \"token_type_ids\": encoding.get(\"token_type_ids\", torch.zeros(self.max_length, dtype=torch.long)).squeeze(0),\n",
+                    "        }\n",
+                    "        if self.labels is not None:\n",
+                    "            item[\"labels\"] = torch.tensor(int(self.labels[idx]), dtype=torch.long)\n",
+                    "        return item\n",
+                    "\n",
+                    "def get_dataloader(df, tokenizer, batch_size=16, shuffle=True, max_length=128):\n",
+                    "    ds = TracerStudyDataset(df[\"teks_bersih\"], df[\"label\"], tokenizer, max_length=max_length)\n",
+                    "    return DataLoader(ds, batch_size=batch_size, shuffle=shuffle)"
+                ]
+            },
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [
+                    "## 4. CRISP-DM 4: Modeling - Pelatihan Model 1 (Topik Kritik & Saran - 5 Kelas)\n",
+                    "Fine-tuning model IndoBERT Sequence Classification dengan optimizer AdamW ($lr=2\\times 10^{-5}$), weight decay 0.01, linear warmup scheduler, dan Early Stopping berbasis Validation Macro F1."
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "def train_model(train_df, val_df, num_labels, id2label, label2id, task_title, epochs=8, batch_size=16, lr=2e-5, patience=3):\n",
+                    "    print(f\"\\n🔥 MEMULAI PELATIHAN: {task_title.upper()}\")\n",
+                    "    print(\"=\" * 65)\n",
+                    "    \n",
+                    "    # Config & Model\n",
+                    "    id2label_str = {str(k): v for k, v in id2label.items()}\n",
+                    "    config = AutoConfig.from_pretrained(\n",
+                    "        PRETRAINED_MODEL_NAME,\n",
+                    "        num_labels=num_labels,\n",
+                    "        id2label=id2label_str,\n",
+                    "        label2id=label2id,\n",
+                    "        classifier_dropout=0.2,\n",
+                    "    )\n",
+                    "    model = AutoModelForSequenceClassification.from_pretrained(PRETRAINED_MODEL_NAME, config=config)\n",
+                    "    model.to(device)\n",
+                    "    \n",
+                    "    train_loader = get_dataloader(train_df, tokenizer, batch_size=batch_size, shuffle=True)\n",
+                    "    val_loader = get_dataloader(val_df, tokenizer, batch_size=batch_size, shuffle=False)\n",
+                    "    \n",
+                    "    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)\n",
+                    "    total_steps = len(train_loader) * epochs\n",
+                    "    scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=int(0.1 * total_steps), num_training_steps=total_steps)\n",
+                    "    \n",
+                    "    history = {\"epochs\": [], \"train_loss\": [], \"val_loss\": [], \"val_acc\": [], \"val_f1\": [], \"best_epoch\": 1, \"best_f1\": 0.0}\n",
+                    "    best_f1 = -1.0\n",
+                    "    best_model_state = None\n",
+                    "    no_improve = 0\n",
+                    "    \n",
+                    "    for epoch in range(1, epochs + 1):\n",
+                    "        model.train()\n",
+                    "        train_loss = 0.0\n",
+                    "        for batch in train_loader:\n",
+                    "            optimizer.zero_grad()\n",
+                    "            input_ids = batch[\"input_ids\"].to(device)\n",
+                    "            attention_mask = batch[\"attention_mask\"].to(device)\n",
+                    "            token_type_ids = batch[\"token_type_ids\"].to(device)\n",
+                    "            labels = batch[\"labels\"].to(device)\n",
+                    "            \n",
+                    "            outputs = model(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, labels=labels)\n",
+                    "            loss = outputs.loss\n",
+                    "            loss.backward()\n",
+                    "            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)\n",
+                    "            optimizer.step()\n",
+                    "            scheduler.step()\n",
+                    "            train_loss += loss.item()\n",
+                    "            \n",
+                    "        avg_train_loss = train_loss / len(train_loader)\n",
+                    "        \n",
+                    "        # Evaluasi Validasi\n",
+                    "        model.eval()\n",
+                    "        val_loss = 0.0\n",
+                    "        all_preds, all_labels = [], []\n",
+                    "        with torch.no_grad():\n",
+                    "            for batch in val_loader:\n",
+                    "                input_ids = batch[\"input_ids\"].to(device)\n",
+                    "                attention_mask = batch[\"attention_mask\"].to(device)\n",
+                    "                token_type_ids = batch[\"token_type_ids\"].to(device)\n",
+                    "                labels = batch[\"labels\"].to(device)\n",
+                    "                outputs = model(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, labels=labels)\n",
+                    "                val_loss += outputs.loss.item()\n",
+                    "                preds = torch.argmax(outputs.logits, dim=1).cpu().numpy()\n",
+                    "                all_preds.extend(preds)\n",
+                    "                all_labels.extend(labels.cpu().numpy())\n",
+                    "                \n",
+                    "        avg_val_loss = val_loss / len(val_loader)\n",
+                    "        val_acc = accuracy_score(all_labels, all_preds)\n",
+                    "        _, _, val_f1, _ = precision_recall_fscore_support(all_labels, all_preds, average=\"macro\", zero_division=0)\n",
+                    "        \n",
+                    "        history[\"epochs\"].append(epoch)\n",
+                    "        history[\"train_loss\"].append(round(avg_train_loss, 4))\n",
+                    "        history[\"val_loss\"].append(round(avg_val_loss, 4))\n",
+                    "        history[\"val_acc\"].append(round(val_acc, 4))\n",
+                    "        history[\"val_f1\"].append(round(val_f1, 4))\n",
+                    "        \n",
+                    "        print(f\"Epoch {epoch:02d}/{epochs:02d} | Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f} | Val Acc: {val_acc*100:.2f}% | Val Macro F1: {val_f1*100:.2f}%\")\n",
+                    "        \n",
+                    "        if val_f1 > best_f1:\n",
+                    "            best_f1 = val_f1\n",
+                    "            history[\"best_epoch\"] = epoch\n",
+                    "            history[\"best_f1\"] = round(val_f1, 4)\n",
+                    "            best_model_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}\n",
+                    "            no_improve = 0\n",
+                    "            print(f\"  ⭐ Checkpoint Terbaik Disimpan (Val F1: {val_f1*100:.2f}%)\")\n",
+                    "        else:\n",
+                    "            no_improve += 1\n",
+                    "            \n",
+                    "        if no_improve >= patience:\n",
+                    "            print(f\"\\n⏹️ Early Stopping diaktifkan pada Epoch {epoch}!\")\n",
+                    "            break\n",
+                    "            \n",
+                    "    if best_model_state is not None:\n",
+                    "        model.load_state_dict({k: v.to(device) for k, v in best_model_state.items()})\n",
+                    "        \n",
+                    "    return model, history"
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "# Melatih Model Topik\n",
+                    "topic_model, hist_topic = train_model(\n",
+                    "    train_df=df_train_topic,\n",
+                    "    val_df=df_val_topic,\n",
+                    "    num_labels=5,\n",
+                    "    id2label=TOPIC_ID2LABEL,\n",
+                    "    label2id=TOPIC_LABEL2ID,\n",
+                    "    task_title=\"Model 1: IndoBERT Topik Kritik & Saran (5 Kelas)\",\n",
+                    "    epochs=8,\n",
+                    "    batch_size=16,\n",
+                    "    lr=2e-5,\n",
+                    "    patience=3,\n",
+                    ")"
+                ]
+            },
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [
+                    "## 5. CRISP-DM 4: Modeling - Pelatihan Model 2 (Sentimen Testimoni - 2 Kelas)\n",
+                    "Fine-tuning model IndoBERT Binary Sentiment Classifier."
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "# Melatih Model Sentimen\n",
+                    "sentiment_model, hist_sentiment = train_model(\n",
+                    "    train_df=df_train_sentiment,\n",
+                    "    val_df=df_val_sentiment,\n",
+                    "    num_labels=2,\n",
+                    "    id2label=SENTIMENT_ID2LABEL,\n",
+                    "    label2id=SENTIMENT_LABEL2ID,\n",
+                    "    task_title=\"Model 2: IndoBERT Sentimen Testimoni (2 Kelas)\",\n",
+                    "    epochs=8,\n",
+                    "    batch_size=16,\n",
+                    "    lr=2e-5,\n",
+                    "    patience=3,\n",
+                    ")"
+                ]
+            },
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [
+                    "### Visualisasi Kurva Loss & Metrik Validasi Kedua Model"
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "fig, axes = plt.subplots(2, 2, figsize=(14, 10), dpi=300)\n",
+                    "\n",
+                    "# Topik Loss & F1\n",
+                    "axes[0, 0].plot(hist_topic[\"epochs\"], hist_topic[\"train_loss\"], 'o-', label=\"Train Loss\")\n",
+                    "axes[0, 0].plot(hist_topic[\"epochs\"], hist_topic[\"val_loss\"], 's--', label=\"Val Loss\")\n",
+                    "axes[0, 0].set_title(\"Model Topik: Kurva Loss\", fontweight=\"bold\")\n",
+                    "axes[0, 0].set_xlabel(\"Epoch\"); axes[0, 0].set_ylabel(\"Loss\"); axes[0, 0].legend(); axes[0, 0].grid(True, linestyle=\":\")\n",
+                    "\n",
+                    "axes[0, 1].plot(hist_topic[\"epochs\"], [v*100 for v in hist_topic[\"val_f1\"]], '^-', color=\"green\", label=\"Val Macro F1 (%)\")\n",
+                    "axes[0, 1].plot(hist_topic[\"epochs\"], [v*100 for v in hist_topic[\"val_acc\"]], 'd:', color=\"purple\", label=\"Val Accuracy (%)\")\n",
+                    "axes[0, 1].set_title(\"Model Topik: Metrik Validasi\", fontweight=\"bold\")\n",
+                    "axes[0, 1].set_xlabel(\"Epoch\"); axes[0, 1].set_ylabel(\"%\"); axes[0, 1].legend(); axes[0, 1].grid(True, linestyle=\":\")\n",
+                    "\n",
+                    "# Sentimen Loss & F1\n",
+                    "axes[1, 0].plot(hist_sentiment[\"epochs\"], hist_sentiment[\"train_loss\"], 'o-', color=\"red\", label=\"Train Loss\")\n",
+                    "axes[1, 0].plot(hist_sentiment[\"epochs\"], hist_sentiment[\"val_loss\"], 's--', color=\"orange\", label=\"Val Loss\")\n",
+                    "axes[1, 0].set_title(\"Model Sentimen: Kurva Loss\", fontweight=\"bold\")\n",
+                    "axes[1, 0].set_xlabel(\"Epoch\"); axes[1, 0].set_ylabel(\"Loss\"); axes[1, 0].legend(); axes[1, 0].grid(True, linestyle=\":\")\n",
+                    "\n",
+                    "axes[1, 1].plot(hist_sentiment[\"epochs\"], [v*100 for v in hist_sentiment[\"val_f1\"]], '^-', color=\"teal\", label=\"Val Macro F1 (%)\")\n",
+                    "axes[1, 1].plot(hist_sentiment[\"epochs\"], [v*100 for v in hist_sentiment[\"val_acc\"]], 'd:', color=\"brown\", label=\"Val Accuracy (%)\")\n",
+                    "axes[1, 1].set_title(\"Model Sentimen: Metrik Validasi\", fontweight=\"bold\")\n",
+                    "axes[1, 1].set_xlabel(\"Epoch\"); axes[1, 1].set_ylabel(\"%\"); axes[1, 1].legend(); axes[1, 1].grid(True, linestyle=\":\")\n",
+                    "\n",
+                    "plt.tight_layout()\n",
+                    "plt.show()"
+                ]
+            },
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [
+                    "## 6. CRISP-DM 5: Evaluation - Pengujian Komprehensif pada Test Set Murni\n",
+                    "Menguji model pada data uji independen yang tidak pernah dilihat selama pelatihan maupun augmentasi (*No Data Leakage*)."
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "def evaluate_test_set(model, test_df, id2label, task_title):\n",
+                    "    model.eval()\n",
+                    "    test_loader = get_dataloader(test_df, tokenizer, batch_size=16, shuffle=False)\n",
+                    "    all_preds, all_labels = [], []\n",
+                    "    \n",
+                    "    with torch.no_grad():\n",
+                    "        for batch in test_loader:\n",
+                    "            input_ids = batch[\"input_ids\"].to(device)\n",
+                    "            attention_mask = batch[\"attention_mask\"].to(device)\n",
+                    "            token_type_ids = batch[\"token_type_ids\"].to(device)\n",
+                    "            labels = batch[\"labels\"].to(device)\n",
+                    "            \n",
+                    "            outputs = model(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)\n",
+                    "            preds = torch.argmax(outputs.logits, dim=1).cpu().numpy()\n",
+                    "            all_preds.extend(preds)\n",
+                    "            all_labels.extend(labels.cpu().numpy())\n",
+                    "            \n",
+                    "    acc = accuracy_score(all_labels, all_preds)\n",
+                    "    p, r, f1, _ = precision_recall_fscore_support(all_labels, all_preds, average=\"macro\", zero_division=0)\n",
+                    "    \n",
+                    "    print(f\"\\n📊 HASIL PENGUJIAN TEST SET: {task_title.upper()}\")\n",
+                    "    print(\"=\" * 65)\n",
+                    "    print(f\"• Total Test Samples : {len(test_df)} data murni\")\n",
+                    "    print(f\"• Accuracy           : {acc*100:.2f}%\")\n",
+                    "    print(f\"• Macro Precision    : {p*100:.2f}%\")\n",
+                    "    print(f\"• Macro Recall       : {r*100:.2f}%\")\n",
+                    "    print(f\"• Macro F1-Score     : {f1*100:.2f}%\")\n",
+                    "    print(\"-\" * 65)\n",
+                    "    \n",
+                    "    target_names = [id2label[i] for i in sorted(id2label.keys())]\n",
+                    "    print(\"📋 Classification Report:\")\n",
+                    "    print(classification_report(all_labels, all_preds, labels=sorted(id2label.keys()), target_names=target_names, zero_division=0))\n",
+                    "    \n",
+                    "    # Confusion Matrix\n",
+                    "    cm = confusion_matrix(all_labels, all_preds, labels=sorted(id2label.keys()))\n",
+                    "    fig, ax = plt.subplots(figsize=(8, 6), dpi=300)\n",
+                    "    sns.heatmap(cm, annot=True, fmt=\"d\", cmap=\"Blues\", xticklabels=target_names, yticklabels=target_names, ax=ax)\n",
+                    "    ax.set_title(f\"Confusion Matrix: {task_title}\", fontweight=\"bold\", pad=12)\n",
+                    "    ax.set_xlabel(\"Predicted Label\", fontweight=\"bold\")\n",
+                    "    ax.set_ylabel(\"True Label\", fontweight=\"bold\")\n",
+                    "    plt.xticks(rotation=25, ha=\"right\")\n",
+                    "    plt.tight_layout()\n",
+                    "    plt.show()\n",
+                    "    \n",
+                    "    return acc, f1"
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "# Evaluasi Model Topik pada Test Set\n",
+                    "acc_t, f1_t = evaluate_test_set(topic_model, df_test_topic, TOPIC_ID2LABEL, \"Model 1: Topik Kritik & Saran\")"
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "# Evaluasi Model Sentimen pada Test Set\n",
+                    "acc_s, f1_s = evaluate_test_set(sentiment_model, df_test_sentiment, SENTIMENT_ID2LABEL, \"Model 2: Sentimen Testimoni\")"
+                ]
+            },
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [
+                    "## 7. CRISP-DM 5: Text Analytics - Visualisasi WordCloud per Kategori\n",
+                    "Menampilkan representasi kata kunci paling dominan pada masing-masing kategori topik dan sentimen Tracer Study."
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "STOPWORDS_ID = set([\n",
+                    "    \"yang\", \"untuk\", \"pada\", \"ke\", \"para\", \"namun\", \"dan\", \"ini\", \"karena\", \"oleh\", \"saat\", \"harus\",\n",
+                    "    \"bisa\", \"tentang\", \"dengan\", \"akan\", \"juga\", \"dari\", \"ada\", \"serta\", \"sudah\", \"saya\", \"kita\", \"nya\",\n",
+                    "    \"dapat\", \"lebih\", \"agar\", \"dalam\", \"bagi\", \"banyak\", \"hal\", \"lagi\", \"mau\", \"saja\", \"tetap\", \"sangat\",\n",
+                    "    \"undika\", \"universitas\", \"dinamika\", \"kampus\", \"mahasiswa\", \"alumni\", \"kuliah\"\n",
+                    "])\n",
+                    "\n",
+                    "df_combined = pd.read_csv(\"../data/raw/combined_tracer_study.csv\")\n",
+                    "\n",
+                    "fig, axes = plt.subplots(3, 2, figsize=(16, 14), dpi=300)\n",
+                    "axes_flat = axes.flatten()\n",
+                    "\n",
+                    "colormaps = [\"Blues\", \"Greens\", \"Oranges\", \"Purples\", \"RdPu\"]\n",
+                    "for i in range(5):\n",
+                    "    label_name = TOPIC_ID2LABEL[i]\n",
+                    "    text_corpus = \" \".join(df_combined[df_combined[\"label_topik\"] == i][\"teks_bersih\"].dropna().tolist())\n",
+                    "    if text_corpus.strip():\n",
+                    "        wc = WordCloud(width=600, height=350, background_color=\"white\", stopwords=STOPWORDS_ID, colormap=colormaps[i], max_words=50, random_state=42).generate(text_corpus)\n",
+                    "        axes_flat[i].imshow(wc, interpolation=\"bilinear\")\n",
+                    "        axes_flat[i].axis(\"off\")\n",
+                    "        axes_flat[i].set_title(f\"Topik: {label_name}\", fontsize=11, fontweight=\"bold\")\n",
+                    "\n",
+                    "# Sentiment Positif vs Negatif\n",
+                    "text_pos = \" \".join(df_combined[df_combined[\"label_sentimen\"] == 1][\"teks_bersih\"].dropna().tolist())\n",
+                    "if text_pos.strip():\n",
+                    "    wc_pos = WordCloud(width=600, height=350, background_color=\"white\", stopwords=STOPWORDS_ID, colormap=\"summer\", max_words=50, random_state=42).generate(text_pos)\n",
+                    "    axes_flat[5].imshow(wc_pos, interpolation=\"bilinear\")\n",
+                    "    axes_flat[5].axis(\"off\")\n",
+                    "    axes_flat[5].set_title(\"Sentimen: Positif (Apresiasi Alumni)\", fontsize=11, fontweight=\"bold\")\n",
+                    "\n",
+                    "plt.tight_layout()\n",
+                    "plt.show()"
+                ]
+            },
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [
+                    "## 8. Dual-Model Live Inference Pipeline & Active Learning Demo\n",
+                    "Menguji pipeline inferensi terpadu dengan berbagai teks kritik, saran, atau testimoni baru secara *real-time* beserta deteksi kebutuhan *Human-in-the-Loop Review* jika skor keyakinan (*confidence score*) $< 70\\%$."
+                ]
+            },
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": [
+                    "def predict_feedback(text, active_learning_threshold=0.70):\n",
+                    "    # Tokenisasi\n",
+                    "    inputs = tokenizer(text, truncation=True, max_length=128, padding=\"max_length\", return_tensors=\"pt\").to(device)\n",
+                    "    \n",
+                    "    with torch.no_grad():\n",
+                    "        # Prediksi Topik\n",
+                    "        out_topic = topic_model(**inputs)\n",
+                    "        prob_topic = F.softmax(out_topic.logits, dim=1).squeeze(0)\n",
+                    "        conf_topic, pred_topic_id = torch.max(prob_topic, dim=0)\n",
+                    "        \n",
+                    "        # Prediksi Sentimen\n",
+                    "        out_sent = sentiment_model(**inputs)\n",
+                    "        prob_sent = F.softmax(out_sent.logits, dim=1).squeeze(0)\n",
+                    "        conf_sent, pred_sent_id = torch.max(prob_sent, dim=0)\n",
+                    "        \n",
+                    "    pred_top_name = TOPIC_ID2LABEL[int(pred_topic_id.item())]\n",
+                    "    pred_sent_name = SENTIMENT_ID2LABEL[int(pred_sent_id.item())]\n",
+                    "    conf_top_val = float(conf_topic.item())\n",
+                    "    conf_sent_val = float(conf_sent.item())\n",
+                    "    \n",
+                    "    needs_review = (conf_top_val < active_learning_threshold) or (conf_sent_val < active_learning_threshold)\n",
+                    "    \n",
+                    "    print(\"-\" * 70)\n",
+                    "    print(f\"💬 Teks Masukan : \\\"{text}\\\"\")\n",
+                    "    print(f\"🎯 Prediksi Topik   : {pred_top_name} (Confidence: {conf_top_val*100:.2f}%)\")\n",
+                    "    print(f\"❤️ Prediksi Sentimen: {pred_sent_name} (Confidence: {conf_sent_val*100:.2f}%)\")\n",
+                    "    print(f\"⚠️ Active Learning : {'🚨 BUTUH REVIEW MANUAL (Confidence < 70%)' if needs_review else '✅ OTOMATIS VALID'}\")\n",
+                    "\n",
+                    "# Uji Coba Berbagai Kasus Kalimat Nyata\n",
+                    "test_cases = [\n",
+                    "    \"Laboratorium komputer untuk praktikum multimedia dan AI perlu diperbarui spesifikasinya agar tidak lemot.\",\n",
+                    "    \"Sangat bangga pernah kuliah di Undika, dosennya ramah dan materi pembelajarannya sangat relevan di tempat kerja saya saat ini.\",\n",
+                    "    \"Tolong perbanyak kerja sama magang dan penyaluran loker ke perusahaan teknologi besar di Surabaya dan Jakarta.\",\n",
+                    "    \"Kurikulum pemrograman web sebaiknya ditambahkan materi framework modern seperti Next.js dan Docker.\",\n",
+                    "    \"Pelayanan biro administrasi akademik mohon dipercepat responnya saat legalisir ijazah online.\",\n",
+                    "    \"Secara umum kampus ini lumayan baik dan menyenangkan meskipun ada beberapa catatan kecil.\"\n",
+                    "]\n",
+                    "\n",
+                    "for case in test_cases:\n",
+                    "    predict_feedback(case)"
+                ]
+            },
+            {
+                "cell_type": "markdown",
+                "metadata": {},
+                "source": [
+                    "---\n",
+                    "### 🏆 Kesimpulan & Rekomendasi Laporan PKL\n",
+                    "1. **Penerapan IndoBERT Base:** Mampu mengidentifikasi topik kritik/saran dan sentimen secara akurat pada korpus bahasa Indonesia semi-formal kampus.\n",
+                    "2. **Pencegahan Overfitting:** Kombinasi *Back-Translation Data Augmentation*, Dropout $0.2$, Weight Decay $0.01$, dan *Early Stopping* terbukti menghasilkan konvergensi yang stabil.\n",
+                    "3. **Kesiapan Fase 5 (FastAPI Deployment):** Model tersimpan siap dimuat ke dalam microservice REST API untuk integrasi dengan sistem informasi kampus Universitas Dinamika."
+                ]
+            }
+        ],
+        "metadata": {
+            "kernelspec": {
+                "display_name": "Python 3",
+                "language": "python",
+                "name": "python3"
+            },
+            "language_info": {
+                "codemirror_mode": {"name": "ipython", "version": 3},
+                "file_extension": ".py",
+                "mimetype": "text/x-python",
+                "name": "python",
+                "nbconvert_exporter": "python",
+                "pygments_lexer": "ipython3",
+                "version": "3.11.16"
+            }
+        },
+        "nbformat": 4,
+        "nbformat_minor": 5
+    }
+
+    os.makedirs("notebooks", exist_ok=True)
+    nb_path = "notebooks/02_crisp_dm_modeling_evaluation.ipynb"
+    with open(nb_path, "w", encoding="utf-8") as f:
+        json.dump(notebook, f, indent=2, ensure_ascii=False)
+
+    print(f"✅ Notebook interaktif berhasil dibuat di: {nb_path}")
+
+
+if __name__ == "__main__":
+    create_modeling_notebook()

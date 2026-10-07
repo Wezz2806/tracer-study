@@ -1,0 +1,16 @@
+{
+    "task_type": "topic",
+    "task_name": "IndoBERT Topic Classifier (5 Kelas)",
+    "best_epoch": 3,
+    "val_macro_f1": 0.5595959595959596,
+    "val_accuracy": 0.8235294117647058,
+    "val_loss": 2.3040551245212555,
+    "train_samples": 350,
+    "val_samples": 17,
+    "hyperparameters": {
+        "learning_rate": 2e-05,
+        "batch_size": 16,
+        "max_length": 128,
+        "weight_decay": 0.01
+    }
+}

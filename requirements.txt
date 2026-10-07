@@ -1,0 +1,33 @@
+# Core Deep Learning & NLP Frameworks
+torch>=2.0.0
+transformers>=4.36.0
+datasets>=2.16.0
+accelerate>=0.26.0
+evaluate>=0.4.0
+
+# Scientific Computing & Data Processing
+numpy>=1.24.0
+scipy>=1.11.0
+pandas>=2.0.0
+openpyxl>=3.1.0
+scikit-learn>=1.3.0
+
+# Data Augmentation & Translation
+deep-translator>=1.11.4
+nltk>=3.8.1
+
+# Visualization & Analytics
+matplotlib>=3.8.0
+seaborn>=0.13.0
+wordcloud>=1.9.3
+
+# Web Serving & Production API Layer
+fastapi>=0.109.0
+uvicorn>=0.27.0
+pydantic>=2.5.0
+python-multipart>=0.0.6
+
+# Interactive Notebook & Progress
+jupyter>=1.0.0
+ipykernel>=6.29.0
+tqdm>=4.66.0

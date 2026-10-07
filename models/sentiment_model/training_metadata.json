@@ -1,0 +1,16 @@
+{
+    "task_type": "sentiment",
+    "task_name": "IndoBERT Sentiment Classifier (2 Kelas)",
+    "best_epoch": 1,
+    "val_macro_f1": 0.775,
+    "val_accuracy": 0.7777777777777778,
+    "val_loss": 0.9173280596733093,
+    "train_samples": 350,
+    "val_samples": 18,
+    "hyperparameters": {
+        "learning_rate": 2e-05,
+        "batch_size": 16,
+        "max_length": 128,
+        "weight_decay": 0.01
+    }
+}

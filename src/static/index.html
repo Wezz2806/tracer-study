@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tracer Study NLP Dashboard - Dual-Model IndoBERT</title>
+    <meta name="description" content="Sistem Cerdas Klasifikasi Topik Kritik/Saran dan Analisis Sentimen Testimoni Alumni Universitas Dinamika berbasis Dual-Model IndoBERT & Active Learning.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dark-theme">
+    <!-- Background Gradient Glows -->
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2"></div>
+    <div class="glow glow-3"></div>
+
+    <div class="app-container">
+        <!-- Top Navigation Bar -->
+        <header class="navbar glass-card">
+            <div class="nav-brand">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-graduation-cap"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>TRACER STUDY <span class="gradient-text">NLP STUDIO</span></h1>
+                    <p class="brand-sub">Universitas Dinamika • Dual-Model IndoBERT (110M Parameters)</p>
+                </div>
+            </div>
+
+            <div class="nav-status">
+                <div class="status-indicator">
+                    <span class="pulsating-dot"></span>
+                    <span id="system-status-text" class="status-label">Model Online</span>
+                </div>
+                <div class="meta-pill" id="device-pill">
+                    <i class="fa-solid fa-microchip"></i> <span id="device-name">CPU/GPU</span>
+                </div>
+                <a href="/docs" target="_blank" class="btn btn-sm btn-outline">
+                    <i class="fa-solid fa-code"></i> Swagger API
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Tab Navigation -->
+        <nav class="tab-nav glass-card">
+            <button class="tab-btn active" data-tab="tab-live" id="btn-tab-live">
+                <i class="fa-solid fa-bolt"></i> Live Inference Studio
+            </button>
+            <button class="tab-btn" data-tab="tab-batch" id="btn-tab-batch">
+                <i class="fa-solid fa-file-excel"></i> Batch File Analyzer
+            </button>
+            <button class="tab-btn" data-tab="tab-analytics" id="btn-tab-analytics">
+                <i class="fa-solid fa-chart-pie"></i> Analitik & WordCloud
+            </button>
+            <button class="tab-btn" data-tab="tab-active-learning" id="btn-tab-active-learning">
+                <i class="fa-solid fa-brain"></i> Active Learning & Review <span class="badge badge-count" id="queue-badge-count">0</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-system" id="btn-tab-system">
+                <i class="fa-solid fa-sliders"></i> Arsitektur Model
+            </button>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="content-area">
+
+            <!-- TAB 1: LIVE INFERENCE STUDIO -->
+            <section id="tab-live" class="tab-content active">
+                <div class="grid grid-2col">
+                    <!-- Left: Input Console -->
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fa-solid fa-keyboard"></i> Masukan Teks Kuesioner Alumni
+                            </div>
+                            <span class="badge badge-info">Real-Time NLP</span>
+                        </div>
+                        <div class="card-body">
+                            <p class="help-text">Ketik masukan alumni atau klik contoh teks cepat di bawah ini:</p>
+                            
+                            <!-- Quick Insert Pills -->
+                            <div class="quick-samples">
+                                <span class="sample-chip" data-sample="Fasilitas lab komputer mohon diupgrade spesifikasi RAM dan VGA-nya agar lancar render 3D.">
+                                    <i class="fa-solid fa-desktop"></i> Fasilitas Lab
+                                </span>
+                                <span class="sample-chip" data-sample="Materi praktikum pemrograman dan kurikulum AI sangat relevan dengan kebutuhan dunia kerja saat ini.">
+                                    <i class="fa-solid fa-book-open"></i> Kurikulum
+                                </span>
+                                <span class="sample-chip" data-sample="Dosen pengajar sangat ramah, sabar membimbing skripsi, dan selalu memberikan wawasan industri.">
+                                    <i class="fa-solid fa-chalkboard-user"></i> Dosen
+                                </span>
+                                <span class="sample-chip" data-sample="Perbanyak kerjasama magang dan info lowongan kerja dengan perusahaan multinasional ternama.">
+                                    <i class="fa-solid fa-briefcase"></i> Magang & Loker
+                                </span>
+                                <span class="sample-chip" data-sample="Pelayanan biro administrasi kemahasiswaan mohon dipercepat proses legalisir ijazahnya.">
+                                    <i class="fa-solid fa-id-card"></i> Layanan Mhs
+                                </span>
+                                <span class="sample-chip" data-sample="Kuliah di Undika sangat berkesan, fasilitas lengkap dan dosennya sangat suportif!">
+                                    <i class="fa-solid fa-thumbs-up"></i> Testimoni Positif
+                                </span>
+                                <span class="sample-chip" data-sample="Sangat kecewa dengan proses birokrasi kampus yang lambat dan wifi sering putus.">
+                                    <i class="fa-solid fa-thumbs-down"></i> Testimoni Negatif
+                                </span>
+                            </div>
+
+                            <div class="input-group">
+                                <textarea id="input-text" rows="5" class="custom-textarea" placeholder="Contoh: Kurikulum mata kuliah database sudah baik, namun perlu ditambahkan studi kasus arsitektur cloud terkini..."></textarea>
+                                <div class="textarea-footer">
+                                    <span id="char-counter">0 karakter</span>
+                                    <div class="threshold-wrapper">
+                                        <label for="conf-threshold">Confidence Threshold:</label>
+                                        <input type="number" id="conf-threshold" min="0.5" max="0.95" step="0.05" value="0.70" class="input-number">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="button-row">
+                                <button id="btn-predict" class="btn btn-primary btn-glow">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> Analisis dengan IndoBERT
+                                </button>
+                                <button id="btn-clear" class="btn btn-secondary">
+                                    <i class="fa-solid fa-rotate-left"></i> Bersihkan
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Prediction Results Display -->
+                    <div class="card glass-card result-panel">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fa-solid fa-chart-simple"></i> Hasil Klasifikasi Dual-Model
+                            </div>
+                            <span id="latency-tag" class="badge badge-neutral">Latency: -- ms</span>
+                        </div>
+                        <div class="card-body">
+                            <!-- Empty State -->
+                            <div id="result-empty-state" class="empty-state">
+                                <i class="fa-solid fa-atom pulse-icon"></i>
+                                <h3>Siap Melakukan Inferensi</h3>
+                                <p>Masukkan teks kritik, saran, atau testimoni pada kolom di sebelah kiri untuk melihat hasil klasifikasi 5 Topik dan 2 Sentimen.</p>
+                            </div>
+
+                            <!-- Loading State -->
+                            <div id="result-loading-state" class="loading-state hidden">
+                                <div class="spinner"></div>
+                                <p>Memproses WordPiece Tokenizer & Transformer Layers...</p>
+                            </div>
+
+                            <!-- Results Container -->
+                            <div id="result-content" class="result-content hidden">
+                                <!-- Text Preprocessing Preview -->
+                                <div class="preview-box">
+                                    <div class="preview-label"><i class="fa-solid fa-filter"></i> Teks Normalisasi (Cleaned):</div>
+                                    <div id="cleaned-text-display" class="preview-text">--</div>
+                                </div>
+
+                                <!-- Dual Cards: Topic & Sentiment -->
+                                <div class="pred-summary-grid">
+                                    <div class="pred-card topic-card">
+                                        <div class="pred-card-header">
+                                            <span><i class="fa-solid fa-tags"></i> Topik Terprediksi</span>
+                                            <span id="topic-conf-badge" class="badge badge-accent">--%</span>
+                                        </div>
+                                        <h2 id="topic-label-display">--</h2>
+                                    </div>
+
+                                    <div class="pred-card sentiment-card">
+                                        <div class="pred-card-header">
+                                            <span><i class="fa-solid fa-heart-pulse"></i> Sentimen Terprediksi</span>
+                                            <span id="sentiment-conf-badge" class="badge badge-accent">--%</span>
+                                        </div>
+                                        <h2 id="sentiment-label-display">--</h2>
+                                    </div>
+                                </div>
+
+                                <!-- Active Learning Warning -->
+                                <div id="al-alert" class="al-alert hidden">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                    <div>
+                                        <strong>Active Learning Flag:</strong> Skor keyakinan di bawah threshold (&lt; 70%). Teks otomatis dikirim ke antrean review verifikator.
+                                    </div>
+                                </div>
+
+                                <!-- Topic Probabilities Breakdown -->
+                                <div class="prob-section">
+                                    <h4>Distribusi Probabilitas Topik (5 Kelas):</h4>
+                                    <div id="topic-prob-bars" class="prob-bars"></div>
+                                </div>
+
+                                <!-- Sentiment Probabilities Breakdown -->
+                                <div class="prob-section">
+                                    <h4>Distribusi Probabilitas Sentimen (2 Kelas):</h4>
+                                    <div id="sentiment-prob-bars" class="prob-bars"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: BATCH FILE ANALYZER -->
+            <section id="tab-batch" class="tab-content">
+                <div class="card glass-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Pemrosesan Batch Dokumen Kuesioner Tracer Study
+                        </div>
+                        <span class="badge badge-info">Excel (.xlsx/.xls) & CSV (.csv)</span>
+                    </div>
+                    <div class="card-body">
+                        <!-- Dropzone -->
+                        <div class="dropzone" id="upload-dropzone">
+                            <input type="file" id="batch-file-input" accept=".xlsx, .xls, .csv" class="file-input-hidden">
+                            <i class="fa-solid fa-file-excel upload-icon"></i>
+                            <h3>Tarik & Letakkan File Kuesioner di Sini</h3>
+                            <p>Mendukung format spreadsheet Excel (<code>.xlsx</code>, <code>.xls</code>) atau file <code>.csv</code>.</p>
+                            <button type="button" class="btn btn-outline" id="btn-browse-file">
+                                <i class="fa-solid fa-folder-open"></i> Pilih File dari Komputer
+                            </button>
+                            <div id="selected-file-info" class="selected-file-info hidden">
+                                <i class="fa-solid fa-file-lines"></i> <span id="file-name-text">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Options & Actions -->
+                        <div class="batch-options-row">
+                            <div class="option-item">
+                                <label for="column-name-input">Nama Kolom Teks (Opsional):</label>
+                                <input type="text" id="column-name-input" placeholder="Biarkan kosong untuk deteksi otomatis" class="custom-input">
+                            </div>
+                            <div class="option-item">
+                                <button id="btn-start-batch" class="btn btn-primary btn-glow" disabled>
+                                    <i class="fa-solid fa-play"></i> Mulai Anotasi Dokumen
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar Container -->
+                        <div id="batch-progress-container" class="progress-container hidden">
+                            <div class="progress-header">
+                                <span id="batch-status-text">Memproses seluruh baris dengan IndoBERT...</span>
+                                <span id="batch-percent-text">0%</span>
+                            </div>
+                            <div class="progress-bar-track">
+                                <div id="batch-progress-fill" class="progress-bar-fill"></div>
+                            </div>
+                        </div>
+
+                        <!-- Batch Results Summary -->
+                        <div id="batch-summary-panel" class="batch-summary-panel hidden">
+                            <div class="summary-stats-grid">
+                                <div class="stat-card">
+                                    <div class="stat-num" id="stat-total-rows">0</div>
+                                    <div class="stat-label">Total Baris Diproses</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-num" id="stat-flagged-rows">0</div>
+                                    <div class="stat-label">Butuh Verifikasi (&lt; 70%)</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-num stat-highlight" id="stat-top-topic">--</div>
+                                    <div class="stat-label">Topik Terbanyak</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-num stat-highlight" id="stat-sentiment-ratio">--</div>
+                                    <div class="stat-label">Dominasi Sentimen</div>
+                                </div>
+                            </div>
+
+                            <div class="batch-actions-bar">
+                                <h3><i class="fa-solid fa-table-list"></i> Pratinjau Hasil Anotasi Teks</h3>
+                                <a id="btn-download-annotated" href="#" class="btn btn-success btn-glow">
+                                    <i class="fa-solid fa-download"></i> Unduh File Beranotasi Lengkap (.xlsx)
+                                </a>
+                            </div>
+
+                            <!-- Interactive Result Table -->
+                            <div class="table-responsive">
+                                <table class="custom-table" id="batch-results-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Teks Kuesioner Asli</th>
+                                            <th>Prediksi Topik</th>
+                                            <th>Conf. Topik</th>
+                                            <th>Prediksi Sentimen</th>
+                                            <th>Conf. Sentimen</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="batch-table-body">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: ANALYTICS & WORDCLOUD -->
+            <section id="tab-analytics" class="tab-content">
+                <div class="grid grid-2col">
+                    <!-- Left: Metrics Overview -->
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fa-solid fa-square-poll-vertical"></i> Metrik Evaluasi Model (Test Set Murni)
+                            </div>
+                            <span class="badge badge-accent">Gold Standard Anti-Leakage</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="metrics-grid">
+                                <div class="metric-box">
+                                    <span class="metric-title">Topic Macro F1</span>
+                                    <span class="metric-val" id="metric-topic-f1">--%</span>
+                                    <span class="metric-desc">Evaluasi 5 Kelas Topik</span>
+                                </div>
+                                <div class="metric-box">
+                                    <span class="metric-title">Topic Accuracy</span>
+                                    <span class="metric-val" id="metric-topic-acc">--%</span>
+                                    <span class="metric-desc">Ketepatan Klasifikasi</span>
+                                </div>
+                                <div class="metric-box">
+                                    <span class="metric-title">Sentiment Macro F1</span>
+                                    <span class="metric-val" id="metric-sentiment-f1">--%</span>
+                                    <span class="metric-desc">Evaluasi 2 Kelas Sentimen</span>
+                                </div>
+                                <div class="metric-box">
+                                    <span class="metric-title">Sentiment Accuracy</span>
+                                    <span class="metric-val" id="metric-sentiment-acc">--%</span>
+                                    <span class="metric-desc">Ketepatan Sentimen</span>
+                                </div>
+                            </div>
+
+                            <div class="evaluation-notes">
+                                <h4><i class="fa-solid fa-circle-info"></i> Catatan Akademik:</h4>
+                                <ul>
+                                    <li>Evaluasi dilakukan secara eksklusif pada <strong>Test Set 15% Murni</strong> tanpa data augmentation.</li>
+                                    <li>Model dilatih menggunakan optimasi <strong>AdamW ($\text{LR}=2\times 10^{-5}$)</strong> dan Linear Warmup Scheduler.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Confusion Matrix Viewer -->
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fa-solid fa-table-cells-large"></i> Heatmap Confusion Matrix
+                            </div>
+                            <div class="matrix-toggle">
+                                <button class="btn btn-sm btn-outline active" id="btn-cm-topic">Topik</button>
+                                <button class="btn btn-sm btn-outline" id="btn-cm-sentiment">Sentimen</button>
+                            </div>
+                        </div>
+                        <div class="card-body text-center">
+                            <div class="image-viewer-box">
+                                <img id="cm-image" src="/reports/figures/confusion_matrix_topic.png" alt="Confusion Matrix" class="responsive-img">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom: High-Res WordCloud Gallery -->
+                <div class="card glass-card margin-top">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fa-solid fa-cloud"></i> Galeri Analitik Kata Kunci (WordCloud 300 DPI)
+                        </div>
+                        <span class="badge badge-info">Frekuensi Kata Dominan Alumni</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="wordcloud-tabs" id="wordcloud-nav">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                        <div class="wordcloud-display-box">
+                            <img id="active-wordcloud-img" src="/reports/wordclouds/wordcloud_topic_0_kurikulum_pembelajaran.png" alt="WordCloud" class="responsive-img-lg">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: ACTIVE LEARNING & RETRAINING -->
+            <section id="tab-active-learning" class="tab-content">
+                <div class="grid grid-2col">
+                    <!-- Left: Human-in-the-Loop Review Queue -->
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fa-solid fa-user-check"></i> Antrean Verifikasi Human-in-the-Loop
+                            </div>
+                            <button id="btn-refresh-queue" class="btn btn-sm btn-secondary">
+                                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <p class="help-text">Daftar teks dengan tingkat keyakinan rendah (&lt; 70%) yang memerlukan validasi operator:</p>
+                            
+                            <div id="queue-empty-state" class="empty-state hidden">
+                                <i class="fa-solid fa-clipboard-check pulse-icon"></i>
+                                <h3>Antrean Bersih!</h3>
+                                <p>Tidak ada masukan yang membutuhkan peninjauan saat ini.</p>
+                            </div>
+
+                            <div id="review-cards-list" class="review-cards-list">
+                                <!-- Cards populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Continuous Retraining Center -->
+                    <div class="card glass-card">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <i class="fa-solid fa-arrows-spin"></i> Engine Continuous Retraining
+                            </div>
+                            <span class="badge badge-accent">Anti-Regression Guard</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="retrain-stats-box">
+                                <div class="retrain-stat-item">
+                                    <span class="label">Sampel Terverifikasi Baru:</span>
+                                    <span class="val" id="verified-samples-count">0</span>
+                                </div>
+                                <div class="retrain-stat-item">
+                                    <span class="label">Ambang Retraining Minimal:</span>
+                                    <span class="val">10 Sampel</span>
+                                </div>
+                                <div class="retrain-stat-item">
+                                    <span class="label">Proteksi Anti-Regresi:</span>
+                                    <span class="val text-success">AKTIF (Auto-Rollback)</span>
+                                </div>
+                            </div>
+
+                            <p class="info-paragraph">
+                                Continuous Retraining melatih ulang checkpoint IndoBERT menggunakan akumulasi masukan baru terverifikasi manusia. Model baru hanya akan menggantikan model produksi jika skor <strong>Macro F1 $\ge$ Baseline</strong>.
+                            </p>
+
+                            <button id="btn-trigger-retrain" class="btn btn-primary btn-glow btn-block">
+                                <i class="fa-solid fa-bolt-lightning"></i> Eksekusi Continuous Retraining Sekarang
+                            </button>
+
+                            <!-- Retrain Console Output -->
+                            <div class="terminal-box margin-top">
+                                <div class="terminal-header">
+                                    <span class="terminal-dot red"></span>
+                                    <span class="terminal-dot yellow"></span>
+                                    <span class="terminal-dot green"></span>
+                                    <span class="terminal-title">retraining_engine.log</span>
+                                </div>
+                                <div class="terminal-content" id="retrain-log-output">
+                                    [SYSTEM] Engine Continuous Retraining siap menerima instruksi.<br>
+                                    [STATUS] Proteksi anti-degradasi aktif. Checkpoint lama akan otomatis dibackup.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 5: ARCHITECTURE & SYSTEM INSIGHTS -->
+            <section id="tab-system" class="tab-content">
+                <div class="card glass-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fa-solid fa-microchip"></i> Arsitektur Dual-Model Transformer IndoBERT
+                        </div>
+                        <span class="badge badge-info">110 Juta Parameter</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="arch-grid">
+                            <div class="arch-spec-card">
+                                <h3><i class="fa-solid fa-layer-group"></i> Spesifikasi Arsitektur</h3>
+                                <ul class="spec-list">
+                                    <li><strong>Model Dasar:</strong> <code>indobenchmark/indobert-base-p1</code></li>
+                                    <li><strong>Lapisan Transformer:</strong> 12 Lapisan Encoder Tersembunyi</li>
+                                    <li><strong>Hidden Dimension ($d_{\text{model}}$):</strong> 768 Dimensi</li>
+                                    <li><strong>Multi-Head Attention:</strong> 12 Kepala Atensi</li>
+                                    <li><strong>Total Parameter:</strong> ~110.000.000 Parameter</li>
+                                    <li><strong>Subword Tokenizer:</strong> WordPiece Tokenizer (~30.000 Vocab)</li>
+                                </ul>
+                            </div>
+
+                            <div class="arch-spec-card">
+                                <h3><i class="fa-solid fa-diagram-project"></i> Alur Pemrosesan Dual-Model</h3>
+                                <ul class="spec-list">
+                                    <li><strong>Model 1 (Topik Kritik/Saran):</strong> 5 Kelas Linear Classification Head $(768 \rightarrow 5) + \text{Dropout}(0.2)$</li>
+                                    <li><strong>Model 2 (Sentimen Testimoni):</strong> 2 Kelas Linear Classification Head $(768 \rightarrow 2) + \text{Dropout}(0.2)$</li>
+                                    <li><strong>Fungsi Loss:</strong> Categorical Cross Entropy Loss</li>
+                                    <li><strong>Optimizer:</strong> AdamW ($\text{LR}=2\times 10^{-5}, \text{Weight Decay}=0.01$)</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="api-endpoints-table margin-top">
+                            <h3><i class="fa-solid fa-network-wired"></i> Daftar Endpoint REST API Siap Integrasi</h3>
+                            <table class="custom-table">
+                                <thead>
+                                    <tr>
+                                        <th>Metode</th>
+                                        <th>Endpoint</th>
+                                        <th>Fungsi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="badge badge-success">GET</span></td>
+                                        <td><code>/health</code></td>
+                                        <td>Pemeriksaan kesehatan server, status model, dan ketersediaan GPU</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge badge-primary">POST</span></td>
+                                        <td><code>/api/predict</code></td>
+                                        <td>Inferensi tunggal (Topik, Sentimen, Probabilitas, dan Active Learning Flag)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge badge-primary">POST</span></td>
+                                        <td><code>/api/predict/batch</code></td>
+                                        <td>Inferensi kumpulan teks JSON dan agregasi sebaran</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge badge-primary">POST</span></td>
+                                        <td><code>/api/upload</code></td>
+                                        <td>Upload file Excel/CSV, klasifikasi otomatis seluruh baris, dan ekspor</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge badge-success">GET</span></td>
+                                        <td><code>/api/active-learning/queue</code></td>
+                                        <td>Melihat antrean teks dengan skor keyakinan rendah (&lt; 70%)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge badge-primary">POST</span></td>
+                                        <td><code>/api/active-learning/review</code></td>
+                                        <td>Menyimpan verifikasi dan koreksi label dari pakar/operator</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge badge-primary">POST</span></td>
+                                        <td><code>/api/retrain/trigger</code></td>
+                                        <td>Memicu pipeline continuous retraining otomatis</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>© 2026 <strong>Universitas Dinamika</strong> • Sistem NLP Tracer Study Berbasis Dual-Model IndoBERT & Active Learning</p>
+            <p class="footer-sub">Standar Metodologi CRISP-DM • Laporan Praktik Kerja Lapangan (PKL) / Magang</p>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/app.js"></script>
+</body>
+</html>

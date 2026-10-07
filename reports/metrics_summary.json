@@ -1,0 +1,88 @@
+{
+    "topic_model": {
+        "accuracy": 0.4444,
+        "macro_precision": 0.4095,
+        "macro_recall": 0.4125,
+        "macro_f1": 0.4086,
+        "weighted_f1": 0.4353,
+        "classification_report": {
+            "Kurikulum & Pembelajaran": {
+                "precision": 0.4,
+                "recall": 0.4,
+                "f1-score": 0.4,
+                "support": 5.0
+            },
+            "Fasilitas & Sarana Prasarana": {
+                "precision": 0.3333333333333333,
+                "recall": 0.25,
+                "f1-score": 0.2857142857142857,
+                "support": 4.0
+            },
+            "Dosen & Tenaga Pengajar": {
+                "precision": 0.3333333333333333,
+                "recall": 0.3333333333333333,
+                "f1-score": 0.3333333333333333,
+                "support": 3.0
+            },
+            "Karier, Magang & Kesiapan Kerja": {
+                "precision": 0.5714285714285714,
+                "recall": 0.6666666666666666,
+                "f1-score": 0.6153846153846154,
+                "support": 6.0
+            },
+            "Layanan Kemahasiswaan & Administrasi Kampus": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1-score": 0.0,
+                "support": 0.0
+            },
+            "accuracy": 0.4444444444444444,
+            "macro avg": {
+                "precision": 0.3276190476190476,
+                "recall": 0.32999999999999996,
+                "f1-score": 0.32688644688644686,
+                "support": 18.0
+            },
+            "weighted avg": {
+                "precision": 0.43121693121693117,
+                "recall": 0.4444444444444444,
+                "f1-score": 0.4352869352869353,
+                "support": 18.0
+            }
+        }
+    },
+    "sentiment_model": {
+        "accuracy": 0.6111,
+        "macro_precision": 0.625,
+        "macro_recall": 0.6111,
+        "macro_f1": 0.6,
+        "weighted_f1": 0.6,
+        "classification_report": {
+            "Negatif": {
+                "precision": 0.5833333333333334,
+                "recall": 0.7777777777777778,
+                "f1-score": 0.6666666666666666,
+                "support": 9.0
+            },
+            "Positif": {
+                "precision": 0.6666666666666666,
+                "recall": 0.4444444444444444,
+                "f1-score": 0.5333333333333333,
+                "support": 9.0
+            },
+            "accuracy": 0.6111111111111112,
+            "macro avg": {
+                "precision": 0.625,
+                "recall": 0.6111111111111112,
+                "f1-score": 0.6,
+                "support": 18.0
+            },
+            "weighted avg": {
+                "precision": 0.625,
+                "recall": 0.6111111111111112,
+                "f1-score": 0.6000000000000001,
+                "support": 18.0
+            }
+        }
+    }
+}

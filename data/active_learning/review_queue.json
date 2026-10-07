@@ -1,0 +1,95 @@
+[
+  {
+    "id": "e6d5d603",
+    "timestamp": "2026-09-22 23:12:23",
+    "text": "kelasnya kurang bersih",
+    "cleaned_text": "kelasnya kurang bersih",
+    "predicted_topic": {
+      "label_id": 0,
+      "label_name": "Kurikulum & Pembelajaran",
+      "confidence": 0.824,
+      "confidence_percentage": "82.40%",
+      "probabilities": {
+        "Kurikulum & Pembelajaran": 0.824,
+        "Fasilitas & Sarana Prasarana": 0.1483,
+        "Dosen & Tenaga Pengajar": 0.0086,
+        "Karier, Magang & Kesiapan Kerja": 0.0038,
+        "Layanan Kemahasiswaan & Administrasi Kampus": 0.0153
+      }
+    },
+    "predicted_sentiment": {
+      "label_id": 0,
+      "label_name": "Negatif",
+      "confidence": 0.5399,
+      "confidence_percentage": "53.99%",
+      "probabilities": {
+        "Negatif": 0.5399,
+        "Positif": 0.4601
+      }
+    },
+    "reason": "Low Confidence (< 70%)",
+    "status": "pending_review"
+  },
+  {
+    "id": "2f1dd413",
+    "timestamp": "2026-09-22 21:52:55",
+    "text": "Perbanyak info lowongan kerja dan magang dari mitra industri.",
+    "cleaned_text": "perbanyak info lowongan kerja dan magang dari mitra industri.",
+    "predicted_topic": {
+      "label_id": 3,
+      "label_name": "Karier, Magang & Kesiapan Kerja",
+      "confidence": 0.8956,
+      "confidence_percentage": "89.56%",
+      "probabilities": {
+        "Kurikulum & Pembelajaran": 0.0602,
+        "Fasilitas & Sarana Prasarana": 0.0044,
+        "Dosen & Tenaga Pengajar": 0.0064,
+        "Karier, Magang & Kesiapan Kerja": 0.8956,
+        "Layanan Kemahasiswaan & Administrasi Kampus": 0.0334
+      }
+    },
+    "predicted_sentiment": {
+      "label_id": 0,
+      "label_name": "Negatif",
+      "confidence": 0.6505,
+      "confidence_percentage": "65.05%",
+      "probabilities": {
+        "Negatif": 0.6505,
+        "Positif": 0.3495
+      }
+    },
+    "reason": "Low Confidence (< 70%)",
+    "status": "pending_review"
+  },
+  {
+    "id": "e5b8f7ae",
+    "timestamp": "2026-09-22 21:52:54",
+    "text": "Dosen pembimbing sangat ramah dan suportif saat bimbingan skripsi.",
+    "cleaned_text": "dosen pembimbing sangat ramah dan suportif saat bimbingan skripsi.",
+    "predicted_topic": {
+      "label_id": 2,
+      "label_name": "Dosen & Tenaga Pengajar",
+      "confidence": 0.7632,
+      "confidence_percentage": "76.32%",
+      "probabilities": {
+        "Kurikulum & Pembelajaran": 0.1739,
+        "Fasilitas & Sarana Prasarana": 0.0461,
+        "Dosen & Tenaga Pengajar": 0.7632,
+        "Karier, Magang & Kesiapan Kerja": 0.0101,
+        "Layanan Kemahasiswaan & Administrasi Kampus": 0.0066
+      }
+    },
+    "predicted_sentiment": {
+      "label_id": 1,
+      "label_name": "Positif",
+      "confidence": 0.536,
+      "confidence_percentage": "53.60%",
+      "probabilities": {
+        "Negatif": 0.464,
+        "Positif": 0.536
+      }
+    },
+    "reason": "Low Confidence (< 70%)",
+    "status": "pending_review"
+  }
+]

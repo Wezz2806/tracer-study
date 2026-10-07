@@ -1,0 +1,6 @@
+﻿timestamp,teks_asli,teks_bersih,corrected_topic_id,corrected_topic_name,corrected_sentiment_id,corrected_sentiment_name,reviewer_notes
+2026-09-22 21:52:55,Wifi perpustakaan sering putus saat malam hari.,wifi perpustakaan sering putus saat malam hari.,1,Fasilitas & Sarana Prasarana,0,Negatif,Verifikasi unit test
+2026-09-22 21:53:46,Wifi perpustakaan sering putus saat malam hari.,wifi perpustakaan sering putus saat malam hari.,1,Fasilitas & Sarana Prasarana,0,Negatif,Verifikasi unit test
+2026-10-07 11:39:38,kelas kotor,kelas kotor,1,Fasilitas & Sarana Prasarana,0,Negatif,Diverifikasi via Web Dashboard Human-in-the-Loop
+2026-10-07 11:39:49,"Kuliah di Undika sangat berkesan, fasilitas lengkap dan dosennya sangat suportif!","kuliah di universitas dinamika sangat berkesan, fasilitas lengkap dan dosennya sangat suportif!",1,Fasilitas & Sarana Prasarana,0,Negatif,Diverifikasi via Web Dashboard Human-in-the-Loop
+2026-10-07 11:40:00,Materi kuliah kurikulum sangat bagus dan terkini.,materi kuliah kurikulum sangat bagus dan terkini.,0,Kurikulum & Pembelajaran,1,Positif,Diverifikasi via Web Dashboard Human-in-the-Loop
